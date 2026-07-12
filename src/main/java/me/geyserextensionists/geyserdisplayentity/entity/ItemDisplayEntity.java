@@ -102,7 +102,7 @@ public class ItemDisplayEntity extends SlotDisplayEntity {
         if (!item.getDefinition().getIdentifier().startsWith("minecraft:")) {
             custom = true;
             if (color != null) {
-                getDirtyMetadata().put(EntityDataTypes.COLOR, color);
+                getMetadata().put(EntityDataTypes.COLOR, color);
             }
         } else {
             custom = false;
@@ -129,7 +129,7 @@ public class ItemDisplayEntity extends SlotDisplayEntity {
         if (hidden) {
             setInvisible(true);
             needHide = true;
-            this.dirtyMetadata.put(EntityDataTypes.SCALE, 0f);
+            this.metadata.put(EntityDataTypes.SCALE, 0f);
         } else {
             needHide = false;
             if (wasHiddenByType) {
@@ -138,7 +138,7 @@ public class ItemDisplayEntity extends SlotDisplayEntity {
                 if (config != null && config.getBoolean("vanilla-scale")) {
                     applyScale();
                 } else {
-                    this.dirtyMetadata.put(EntityDataTypes.SCALE, 1f);
+                    this.metadata.put(EntityDataTypes.SCALE, 1f);
                 }
             }
         }
@@ -206,7 +206,7 @@ public class ItemDisplayEntity extends SlotDisplayEntity {
     @Override
     protected void applyScale() {
         if (needHide) {
-            dirtyMetadata.put(EntityDataTypes.SCALE, 0f);
+            metadata.put(EntityDataTypes.SCALE, 0f);
         } else {
             super.applyScale();
         }
