@@ -1,6 +1,7 @@
 package me.geyserextensionists.geyserdisplayentity.entity;
 
 import me.geyserextensionists.geyserdisplayentity.GeyserDisplayEntity;
+import me.geyserextensionists.geyserdisplayentity.managers.ConfigManager;
 import me.geyserextensionists.geyserdisplayentity.type.DisplayType;
 import me.geyserextensionists.geyserdisplayentity.util.DeltaUtils;
 import me.geyserextensionists.geyserdisplayentity.util.FileConfiguration;
@@ -101,7 +102,7 @@ public class ItemDisplayEntity extends SlotDisplayEntity {
         if (!item.getDefinition().getIdentifier().startsWith("minecraft:")) {
             custom = true;
             if (color != null) {
-                getDirtyMetadata().put(EntityDataTypes.COLOR, color);
+                getMetadata().put(EntityDataTypes.COLOR, color);
             }
         } else {
             custom = false;
@@ -111,16 +112,24 @@ public class ItemDisplayEntity extends SlotDisplayEntity {
         String javaID = session.getItemMappings().getMapping(stack).getJavaItem().javaIdentifier();
         boolean wasHiddenByType = needHide;
 
-        // Keep hide-types behavior for vanilla items, but allow custom translated items
-        // (e.g. custom model data on minecraft:bone) to remain visible unless explicitly forced.
-        FileConfiguration rootConfig = GeyserDisplayEntity.getExtension().getConfigManager().getConfig();
-        boolean hiddenByType = rootConfig.getStringList("hide-types").contains(javaID);
-        boolean forceHiddenCustomType = rootConfig.getStringList("hide-custom-types").contains(javaID);
+        ConfigManager cfg = GeyserDisplayEntity.getExtension().getConfigManager();
+        boolean hiddenByType = cfg.getHideTypes().contains(javaID);
+        boolean forceHiddenCustomType = cfg.getHideCustomTypes().contains(javaID);
+        boolean unmappedVanilla = cfg.isHideUnmappedVanilla() && !custom && !mappingApplied;
 
-        if ((hiddenByType && !custom) || forceHiddenCustomType) {
+        boolean hidden = (hiddenByType && !custom) || forceHiddenCustomType || unmappedVanilla;
+
+        if (cfg.isLogDisplays()) {
+            GeyserDisplayEntity.getExtension().logger().info("ItemDisplay java=" + javaID
+                    + " bedrock=" + item.getDefinition().getIdentifier()
+                    + " custom=" + custom + " mapped=" + mappingApplied
+                    + " -> " + (hidden ? "HIDDEN" : "SHOWN"));
+        }
+
+        if (hidden) {
             setInvisible(true);
             needHide = true;
-            this.dirtyMetadata.put(EntityDataTypes.SCALE, 0f);
+            this.metadata.put(EntityDataTypes.SCALE, 0f);
         } else {
             needHide = false;
             if (wasHiddenByType) {
@@ -129,7 +138,7 @@ public class ItemDisplayEntity extends SlotDisplayEntity {
                 if (config != null && config.getBoolean("vanilla-scale")) {
                     applyScale();
                 } else {
-                    this.dirtyMetadata.put(EntityDataTypes.SCALE, 1f);
+                    this.metadata.put(EntityDataTypes.SCALE, 1f);
                 }
             }
         }
@@ -174,13 +183,30 @@ public class ItemDisplayEntity extends SlotDisplayEntity {
         }
 
         if (config.getBoolean("vanilla-scale")) applyScale();
+        applyMappingDisplayTransform(config);
         return true;
+    }
+
+    private void applyMappingDisplayTransform(FileConfiguration cfg) {
+        Vector3f rot = readVec3(cfg, "rotation");
+        Vector3f trans = readVec3(cfg, "translation");
+        if (rot == null && trans == null) return;
+        applyMappingTransform(
+                rot != null ? rot : Vector3f.from(0, 0, 0),
+                trans != null ? trans : Vector3f.from(0, 0, 0));
+    }
+
+    private static Vector3f readVec3(FileConfiguration cfg, String key) {
+        if (cfg == null || !cfg.contains(key)) return null;
+        List<Float> v = cfg.getFloatList(key);
+        if (v.size() < 3) return null;
+        return Vector3f.from(v.get(0), v.get(1), v.get(2));
     }
 
     @Override
     protected void applyScale() {
         if (needHide) {
-            dirtyMetadata.put(EntityDataTypes.SCALE, 0f);
+            metadata.put(EntityDataTypes.SCALE, 0f);
         } else {
             super.applyScale();
         }
